@@ -15,6 +15,7 @@ export class OIDCec2RoleStack extends cdk.Stack {
     const githubProvider = new iam.OpenIdConnectProvider(this, 'GitHubProvider', {
       url: 'https://token.actions.githubusercontent.com',
       clientIds: ['sts.amazonaws.com'],
+      thumbprints: ['6938fd4d98bab03faadb97b34396831e3780aea1'], // https://github.blog/changelog/2022-01-13-github-actions-update-on-oidc-based-deployments-to-aws/
     });
 
     // IAM Role for github actions
