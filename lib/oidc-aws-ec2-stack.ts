@@ -1,6 +1,7 @@
 import * as cdk from 'aws-cdk-lib';
 import { Construct } from 'constructs';
 import * as iam from 'aws-cdk-lib/aws-iam';
+import * as codedeploy from 'aws-cdk-lib/aws-codedeploy';
 
 export interface OIDCec2RoleStackProps extends cdk.StackProps {
   readonly githubRepoPath: string;
@@ -24,7 +25,7 @@ export class OIDCec2RoleStack extends cdk.Stack {
       assumedBy: new iam.OpenIdConnectPrincipal(githubProvider).withConditions(
         {
           "StringLike": {
-            "token.actions.githubusercontent.com:sub": `repo:${githubRepoPath}`
+            "token.actions.githubusercontent.com:sub": `${githubRepoPath}`
           },
           "StringEquals": {
             "token.actions.githubusercontent.com:aud": "sts.amazonaws.com"
@@ -45,5 +46,31 @@ export class OIDCec2RoleStack extends cdk.Stack {
       ],
       resources: ['*'],
     }));
+
+    // IAM Role for CodeDeploy
+    const codedeployRole = new iam.Role(this, 'CodeDeployRole', {
+      roleName: 'ec2-codedeploy-role',
+      assumedBy: new iam.ServicePrincipal('codedeploy.amazonaws.com'),
+      managedPolicies: [
+        iam.ManagedPolicy.fromAwsManagedPolicyName('service-role/AWSCodeDeployRole'),
+      ],
+    });
+
+    // CodeDeploy for EC2
+    const ec2CodeDeploy = new codedeploy.ServerApplication(this, 'EC2CodeDeploy', {
+      applicationName: 'ec2-codedeploy',
+    });
+
+    // CodeDeploy Deployment Group
+    const deploymentGroup = new codedeploy.ServerDeploymentGroup(this, 'EC2DeploymentGroup', {
+      application: ec2CodeDeploy,
+      deploymentGroupName: 'ec2-codedeploy-deployment-group',
+      role: codedeployRole,
+      deploymentConfig: codedeploy.ServerDeploymentConfig.ALL_AT_ONCE,
+      installAgent: true,
+      ec2InstanceTags: new codedeploy.InstanceTagSet({
+        'Name': ['S2'], // Name of your EC2 instance
+      }),
+    });
   }
 }
